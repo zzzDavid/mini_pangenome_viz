@@ -8,7 +8,7 @@ class Model(nn.Module):
         super().__init__()
         self.npoint = npoint
         coords = torch.Tensor(npoint, 2)
-        self.coords = coords
+        self.coords = nn.Parameter(data=coords, requires_grad=True)
         
         # initialize coords
         nn.init.kaiming_uniform_(self.coords, a=math.sqrt(5))
@@ -30,19 +30,33 @@ def loss_func(coords, gt):
     broadcasted2 = torch.broadcast_to(copy2, (npoint, npoint, 2))
     diff = broadcasted1 - broadcasted2 # [npoint, npoint, 2]
     diff_sq = torch.square(diff) # [npoint, npoint, 2]
-    pred_dist = torch.sqrt(torch.sum(diff_sq, dim=2))
-    pred_dist = torch.reshape(pred_dist, (npoint, npoint))# [npoint, npoint]
+    # pred_dist = torch.sqrt(torch.sum(diff_sq, dim=2).reshape((npoint, npoint)))
+    pred_dist = torch.sum(diff_sq, dim=2).reshape((npoint, npoint))
+    # pred_dist = torch.reshape(pred_dist, (npoint, npoint))# [npoint, npoint]
     mask = gt.gt(0)
     pred_dist = torch.where(mask, pred_dist, gt)
-    err = torch.abs(pred_dist - gt) / gt
-    return torch.sum(err)
+    gt = torch.square(gt)
+    err = torch.abs(pred_dist - gt)
+    err = torch.where(mask, err / gt, gt)
+    loss = torch.sum(err)
+    print(loss)
+    return loss
+    # return torch.sum(coords)
+    # return torch.sum(diff_sq)
+    # return torch.sum( torch.sum(diff_sq, dim=2).reshape((npoint, npoint)) )
+    # return torch.sum(pred_dist)
 
 
 gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
 
 model = Model(5)
-output = model()
-loss = loss_func(output, gt)
-loss.requires_grad = True
-loss.backward()
-print(model.coords.grad)
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-5)
+model.train()
+for step in range(2):
+    print(model.coords)
+    optimizer.zero_grad()
+    output = model()
+    loss = loss_func(output, gt)
+    loss.backward()
+    print(model.coords.grad)
+    optimizer.step()
