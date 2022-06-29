@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import math
+import numpy as np
 
 
 class Model(nn.Module):
@@ -30,9 +31,9 @@ def loss_func(coords, gt):
     broadcasted2 = torch.broadcast_to(copy2, (npoint, npoint, 2))
     diff = broadcasted1 - broadcasted2 # [npoint, npoint, 2]
     diff_sq = torch.square(diff) # [npoint, npoint, 2]
+    # Hmmmm sqrt is not differentiable
     # pred_dist = torch.sqrt(torch.sum(diff_sq, dim=2).reshape((npoint, npoint)))
     pred_dist = torch.sum(diff_sq, dim=2).reshape((npoint, npoint))
-    # pred_dist = torch.reshape(pred_dist, (npoint, npoint))# [npoint, npoint]
     mask = gt.gt(0)
     pred_dist = torch.where(mask, pred_dist, gt)
     gt = torch.square(gt)
@@ -41,18 +42,18 @@ def loss_func(coords, gt):
     loss = torch.sum(err)
     print(loss)
     return loss
-    # return torch.sum(coords)
-    # return torch.sum(diff_sq)
-    # return torch.sum( torch.sum(diff_sq, dim=2).reshape((npoint, npoint)) )
-    # return torch.sum(pred_dist)
 
 
 gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
-
 model = Model(5)
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 model.train()
-for step in range(10000):
+
+# just for logging
+steps = 200
+coord_changes = np.zeros((steps, 5, 2), dtype=np.float32)
+
+for step in range(steps):
     # print(model.coords)
     optimizer.zero_grad()
     output = model()
@@ -60,3 +61,10 @@ for step in range(10000):
     loss.backward()
     # print(model.coords.grad)
     optimizer.step()
+
+    coord = model.coords.cpu().detach().numpy()
+    coord_changes[step] = coord
+    # print(f"({coord[0][0]}, {coord[0][1]})")
+
+with open('coord_changes.bin', 'wb') as f:
+    coord_changes.tofile(f)
