@@ -50,13 +50,13 @@ def loss_func(coords, gt):
 gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
 
 model = Model(5)
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-5)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 model.train()
-for step in range(2):
-    print(model.coords)
+for step in range(10000):
+    # print(model.coords)
     optimizer.zero_grad()
     output = model()
     loss = loss_func(output, gt)
     loss.backward()
-    print(model.coords.grad)
+    # print(model.coords.grad)
     optimizer.step()
