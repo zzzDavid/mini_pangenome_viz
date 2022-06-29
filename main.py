@@ -18,7 +18,6 @@ class Model(nn.Module):
         return self.coords
 
 
-
 def loss_func(coords, gt):
     # coords.shape = [npoint, 2]
     # gt is the ground truth pair distances
@@ -43,10 +42,11 @@ def loss_func(coords, gt):
     print(loss)
     return loss
 
-
-gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
+# gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
+gt = torch.tensor([[0,2,5,7,7],[2,0,3,5,5],[5,3,0,2,2],[7,5,2,0,2],[7,5,2,2,0]], dtype=torch.float)
 model = Model(5)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
+# scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
 model.train()
 
 # just for logging
@@ -61,6 +61,7 @@ for step in range(steps):
     loss.backward()
     # print(model.coords.grad)
     optimizer.step()
+    # scheduler.step()
 
     coord = model.coords.cpu().detach().numpy()
     coord_changes[step] = coord
