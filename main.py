@@ -29,10 +29,7 @@ def loss_func(coords, gt):
     broadcasted1 = torch.broadcast_to(copy1, (npoint, npoint, 2))
     broadcasted2 = torch.broadcast_to(copy2, (npoint, npoint, 2))
     diff = broadcasted1 - broadcasted2 # [npoint, npoint, 2]
-    diff_sq = torch.square(diff) # [npoint, npoint, 2]
-    # Hmmmm sqrt is not differentiable
-    # pred_dist = torch.sqrt(torch.sum(diff_sq, dim=2).reshape((npoint, npoint)))
-    pred_dist = torch.sum(diff_sq, dim=2).reshape((npoint, npoint))
+    pred_dist = torch.norm(diff, dim=2).reshape((npoint, npoint))
     mask = gt.gt(0)
     pred_dist = torch.where(mask, pred_dist, gt)
     gt = torch.square(gt)
