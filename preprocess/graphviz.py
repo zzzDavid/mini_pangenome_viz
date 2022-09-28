@@ -37,24 +37,27 @@ class GraphVisualization:
 		# looks messy
 
 		# Force directed layout
-		# pos = nx.kamada_kawai_layout(G)
+		pos = nx.kamada_kawai_layout(G)
+		import ipdb; ipdb.set_trace()
 		# very slow
 		# but the result looks very promising
 		
 		# Spectral layout
-		pos = nx.spectral_layout(G)
+		# pos = nx.spectral_layout(G)
 		# looks good
 		# pos is good for initialization
-		init = np.asarray([v for v in pos.values()]).astype(np.float32)
-		init.tofile("./spectral_init.bin")
+		# init = np.asarray([v for v in pos.values()]).astype(np.float32)
+		# print("init.shape: {}".format(init.shape))
+		# init.tofile("./spectral_init.bin")
 		
 		# Bipartite layout
 		# top = nx.bipartite.sets(G)[0]
 		# pos = nx.bipartite_layout(G, top)
 		# Graph not bipartite, doesn't work
 		
-		nx.draw_networkx(G, pos=pos, linewidths=0.1, node_size=1, with_labels=False)
-		
+		# nx.draw_networkx(G, pos=pos, linewidths=0, node_size=1, with_labels=False)
+		nx.draw_networkx_nodes(G, pos=pos, node_size=1)
+
 		plt.savefig(filename, dpi=1000)
 
 if __name__ == "__main__":
@@ -68,5 +71,5 @@ if __name__ == "__main__":
 	for i, j in zip(nonzeros_idx[0], nonzeros_idx[1]):
 		G.addEdge(i, j, dist_matrx[i, j])
 	print("visualizing graph...")
-	G.visualize("./spectral_layout.png")
+	G.visualize("./kamada.png")
 	print("done")
