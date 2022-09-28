@@ -5,14 +5,17 @@ import numpy as np
 
 
 class Model(nn.Module):
-    def __init__(self, npoint):
+    def __init__(self, npoint, init=None):
         super().__init__()
         self.npoint = npoint
-        coords = torch.Tensor(npoint, 2)
-        self.coords = nn.Parameter(data=coords, requires_grad=True)
-        
-        # initialize coords
-        nn.init.kaiming_uniform_(self.coords, a=math.sqrt(5))
+        if init is None:
+            coords = torch.Tensor(npoint, 2)
+            self.coords = nn.Parameter(data=coords, requires_grad=True)
+            
+            # initialize coords
+            nn.init.kaiming_uniform_(self.coords, a=math.sqrt(5))
+        else:
+            self.coords = nn.Parameter(data=init, requires_grad=True)
     
     def forward(self):
         return self.coords
@@ -36,19 +39,43 @@ def loss_func(coords, gt):
     err = torch.abs(pred_dist - gt)
     err = torch.where(mask, err / gt, gt)
     loss = torch.sum(err)
-    print(loss)
     return loss
 
-# gt = torch.tensor([[0,2,0,0,0],[2,0,3,0,0],[0,3,0,2,2],[0,0,2,0,2],[0,0,2,2,0]], dtype=torch.float)
-gt = torch.tensor([[0,2,5,7,7],[2,0,3,5,5],[5,3,0,2,2],[7,5,2,0,2],[7,5,2,2,0]], dtype=torch.float)
-model = Model(5)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
-# scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
+def generate_init(gt):
+    # gt.shape = [npoint, npoint]
+    # generate initial coords
+    npoint = gt.shape[0]
+    coords = torch.zeros((npoint, 2))
+    for i in range(npoint):
+        dist = gt[0, i]
+        if dist == 0:
+            continue
+        else:
+            # generate random angle
+            angle = torch.rand(1) * 2 * math.pi
+            coords[i, 0] = dist * math.cos(angle)
+            coords[i, 1] = dist * math.sin(angle)
+    return coords
+
+filename = './preprocess/distance.bin'
+npoint = 9898
+print("loading ground truth distance matrix: {}...".format(filename))
+gt = np.fromfile(filename, dtype=np.int32).reshape((npoint, npoint))
+gt = torch.from_numpy(gt)
+# init = generate_init(gt)
+init = None
+model = Model(npoint, init)
+# optimizer = torch.optim.SGD(model.parameters(), lr=0.2)
+# Use adam instead of SGD
+optimizer = torch.optim.Adam(model.parameters(), lr=0.2)
+model.to('cuda')
+gt = gt.to('cuda')
 model.train()
 
 # just for logging
-steps = 200
-coord_changes = np.zeros((steps, 5, 2), dtype=np.float32)
+steps = 100000
+log_interval = 500
+coord_changes = np.zeros((steps//log_interval, npoint, 2), dtype=np.float32)
 
 for step in range(steps):
     # print(model.coords)
@@ -58,10 +85,15 @@ for step in range(steps):
     loss.backward()
     # print(model.coords.grad)
     optimizer.step()
+    if step % log_interval == 0:
+        print("step {}, loss {}".format(step, loss))
     # scheduler.step()
 
-    coord = model.coords.cpu().detach().numpy()
-    coord_changes[step] = coord
+        coord = model.coords.cpu().detach().numpy()
+        # snapshot the coords
+        filename = "./snapshots/coords_{}.bin".format(step)
+        coord.tofile(filename)
+        coord_changes[step//log_interval] = coord
     # print(f"({coord[0][0]}, {coord[0][1]})")
 
 with open('coord_changes.bin', 'wb') as f:
