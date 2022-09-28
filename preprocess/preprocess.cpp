@@ -8,8 +8,8 @@
 #define ENDPOINTS 9910
 
 int main() {
-  std::ifstream bigFile("./data.bin");
-  std::cout << "reading data from data.bin..." << std::endl;
+  std::ifstream bigFile("./DRB1-3123_Dist.bin");
+  std::cout << "reading data from DRB1-3123_Dist.bin..." << std::endl;
   constexpr size_t bufferSize = PATHS * ENDPOINTS * ENDPOINTS * sizeof(float);
   std::unique_ptr<char[]> buffer(new char[bufferSize]);
   while (bigFile) {
@@ -18,7 +18,7 @@ int main() {
 
   float *array;
   array = (float *)malloc(sizeof(int) * PATHS * ENDPOINTS * ENDPOINTS);
-
+  // float avgPathLength = 0.0;
   std::vector<std::pair<int, int>> close_pairs;
   for (int p = 0; p < PATHS; p++) {
     for (int i = 0; i < ENDPOINTS; i++) {
@@ -26,12 +26,15 @@ int main() {
         float dist = *((float *)&buffer[4 * (p * ENDPOINTS * ENDPOINTS +
                                              i * ENDPOINTS + j)]);
         array[p * ENDPOINTS * ENDPOINTS + i * ENDPOINTS + j] = dist;
+        // avgPathLength += dist;
         if (dist > 0.0 && dist < 1e-8) {
           close_pairs.push_back(std::make_pair(i, j));
         }
       }
     }
   }
+
+  // avgPathLength /= (float)PATHS;
 
   std::vector<std::set<int>> merged_points;
   std::map<int, int> point_to_merged;
@@ -79,12 +82,12 @@ int main() {
   std::cout << "point_to_merged.size() = " << point_to_merged.size()
             << std::endl;
 
-  int *distanceMatrix =
+  int *weightedEdgeMatrix =
       (int *)malloc(sizeof(int) * unique_points * unique_points);
-  // initialize distanceMatrix
+  // initialize weightedEdgeMatrix
   for (int i = 0; i < unique_points; i++) {
     for (int j = 0; j < unique_points; j++) {
-      distanceMatrix[i * unique_points + j] = 0;
+      weightedEdgeMatrix[i * unique_points + j] = 0;
     }
   }
   for (int i = 0; i < ENDPOINTS; i += 2) {
@@ -93,23 +96,69 @@ int main() {
     for (int p = 0; p < PATHS; p++) {
       float dist = array[p * ENDPOINTS * ENDPOINTS + i * ENDPOINTS + i + 1];
       if (dist > 0.0) {
-        distanceMatrix[start_index * unique_points + end_index] = (int)dist;
-        distanceMatrix[end_index * unique_points + start_index] = (int)dist;
+        weightedEdgeMatrix[start_index * unique_points + end_index] = (int)dist;
+        weightedEdgeMatrix[end_index * unique_points + start_index] = (int)dist;
       }
     }
   }
 
   // write unique point connection matrix
-  std::cout << "writing data to distance.bin..." << std::endl;
-  FILE *file = fopen("./distance.bin", "wb");
+  std::cout << "writing data to weighted_edge.bin..." << std::endl;
+  FILE *file = fopen("./weighted_edge.bin", "wb");
   for (int i = 0; i < unique_points; i++) {
     for (int j = 0; j < unique_points; j++) {
-      if (i == 0)
-        std::cout << distanceMatrix[i * unique_points + j] << " ";
-      fwrite(&distanceMatrix[i * unique_points + j], sizeof(int), 1, file);
+      fwrite(&weightedEdgeMatrix[i * unique_points + j], sizeof(int), 1, file);
     }
-    if (i == 0)
-      std::cout << std::endl;
   }
+
+  /*
+  // initialize distanceMatrix
+  int *distanceMatrix = (int *)malloc(sizeof(int) * unique_points * unique_points);
+  for (int i = 0; i < unique_points; i++) {
+    for (int j = 0; j < unique_points; j++) {
+      distanceMatrix[i * unique_points + j] = 0;
+    }
+  }
+
+  for (int i = 0; i < ENDPOINTS; i++) {
+    for (int j = i+1; j < ENDPOINTS; j++) {
+      int start_index = point_to_merged[i];
+      int end_index = point_to_merged[j];
+      if (start_index == end_index) {
+        continue;
+      }
+
+      // find the shortest distance
+      int shortest_dist = -1;
+      for (int p = 0; p < PATHS; p++) {
+        float dist = array[p * ENDPOINTS * ENDPOINTS + i * ENDPOINTS + j];
+        if (dist > 1e-3) {
+          if (dist < shortest_dist) {
+            shortest_dist = (int)dist;
+          }
+        }
+      }
+      shortest_dist = shortest_dist > 0 ? shortest_dist : 10000;
+      distanceMatrix[start_index * unique_points + end_index] = shortest_dist;
+      distanceMatrix[end_index * unique_points + start_index] = shortest_dist;
+    }
+  }
+
+  // write distance matrix
+  std::cout << "writing data to distance.bin..." << std::endl;
+  FILE *dfile = fopen("./distance.bin", "wb");
+  for (int i = 0; i < unique_points; i++) {
+    for (int j = 0; j < unique_points; j++) {
+      if (i == 0) {
+        std::cout << distanceMatrix[i * unique_points + j] << " ";
+      }
+      fwrite(&distanceMatrix[i * unique_points + j], sizeof(int), 1, dfile);
+    }
+    if (i == 0) {
+      std::cout << std::endl;
+    }
+  }
+
+  */
   return 0;
 }
